@@ -1,5 +1,5 @@
-from typing import Optional, Iterator, Any
-from collections.abc import MutableMapping
+from typing import Optional, Iterator, Any, Tuple, List
+from collections.abc import MutableMapping, KeysView, ValuesView, ItemsView
 
 class ListNode:
     """A node in the doubly linked list."""
@@ -96,7 +96,28 @@ class LRUCache(MutableMapping):
         self.head.next = self.tail
         self.tail.prev = self.head
 
+    def _traverse(self) -> List[Tuple[Any, Any]]:
+        """Helper to traverse the linked list in LRU order."""
+        result = []
+        current = self.head.next
+        while current and current != self.tail:
+            result.append((current.key, current.value))
+            current = current.next
+        return result
+
+    def keys(self) -> KeysView:
+        """Return a view of the cache's keys in LRU order."""
+        return KeysView({key: None for key, _ in self._traverse()})
+
+    def values(self) -> ValuesView:
+        """Return a view of the cache's values in LRU order."""
+        return ValuesView({key: value for key, value in self._traverse()})
+
+    def items(self) -> ItemsView:
+        """Return a view of the cache's items in LRU order."""
+        return ItemsView(dict(self._traverse()))
+
     def __repr__(self) -> str:
-        """String representation of LRUCaceh."""
-        items = ", ".join(f"{key}: {node.value}" for key, node in self.store.items())
+        """String representation of LRUCache."""
+        items = ", ".join(f"{key}: {value}" for key, value in self._traverse())
         return f"{type(self).__name__}(capacity={self.capacity}, items={{ {items} }})"
