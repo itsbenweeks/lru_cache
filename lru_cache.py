@@ -1,21 +1,24 @@
-from typing import Optional, Dict
+from typing import Optional, Iterator, Any
+from collections.abc import MutableMapping
 
 class ListNode:
-    """A node in a doubly linked list."""
-    def __init__(self, key: int = None, value: int = None):
-        self.key: int = key
-        self.value: int = value
+    """A node in the doubly linked list."""
+    def __init__(self, key: Any = None, value: Any = None):
+        self.key: Any = key
+        self.value: Any = value
         self.prev: Optional[ListNode] = None
         self.next: Optional[ListNode] = None
-    def __repr__(self):
-        class_name = type(self).__name__
-        return f"{class_name}(key={self.key}, value={self.value})"
 
-class LRUCache(dict):
-    """LRU Cache implemented using dict + doubly linked list."""
+    def __repr__(self):
+        prev_key = self.prev.key if self.prev else None
+        next_key = self.next.key if self.next else None
+        return f"{type(self).__name__}(key={self.key}, value={self.value}, prev={prev_key}, next={next_key})"
+
+class LRUCache(MutableMapping):
+    """LRU Cache implemented using MutableMapping"""
     def __init__(self, capacity: int):
-        super().__init__()
         self.capacity: int = capacity
+        self.store: dict[Any, ListNode] = {}
         self.head: ListNode = ListNode()  # Dummy head
         self.tail: ListNode = ListNode()  # Dummy tail
         self.head.next = self.tail
@@ -29,55 +32,71 @@ class LRUCache(dict):
             next_node.prev = prev_node
 
     def _add_to_tail(self, node: ListNode) -> None:
-        """Add a node right before the tail (most recently used)."""
-        prev_tail: ListNode = self.tail.prev
+        """Add a node right before the tail."""
+        prev_tail = self.tail.prev
         if prev_tail:
             prev_tail.next = node
             node.prev = prev_tail
             node.next = self.tail
             self.tail.prev = node
 
-    def get(self, key: int) -> int:
-        """Get the value of a key and mark it as recently used."""
-        if key not in self:
-            return -1
-        node = self[key]
-        # Move the accessed node to the end
+    def __getitem__(self, key: Any) -> Any:
+        """Get the value for a given key."""
+        if key not in self.store:
+            raise KeyError(key)
+        node = self.store[key]
+        # Move the accessed node to the end (most recently used)
         self._remove(node)
         self._add_to_tail(node)
         return node.value
 
-    def put(self, key: int, value: int) -> None:
-        """Insert/update a key-value pair in the cache and mark it as recently used."""
-        if key in self:
-            # Update the value and move it to the end
-            node = self[key]
+    def __setitem__(self, key: Any, value: Any) -> None:
+        """Insert or update a key-value pair."""
+        if key in self.store:
+            node = self.store[key]
             node.value = value
             self._remove(node)
             self._add_to_tail(node)
         else:
-            if len(self) >= self.capacity:
+            if len(self.store) >= self.capacity:
                 # Remove the least recently used node (head's next)
                 lru_node = self.head.next
                 if lru_node:
                     self._remove(lru_node)
-                    del self[lru_node.key]
-            # Create a new node and add it to the dict and linked list
+                    del self.store[lru_node.key]
             new_node = ListNode(key, value)
-            self[key] = new_node
+            self.store[key] = new_node
             self._add_to_tail(new_node)
 
-    def delete(self, key: int) -> bool:
-        """Remove a specific key from the cache. Returns True if successful."""
-        if key not in self:
-            return False
-        node = self[key]
+    def __delitem__(self, key: Any) -> None:
+        """Delete a key from the cache."""
+        if key not in self.store:
+            raise KeyError(key)
+        node = self.store.pop(key)
         self._remove(node)
-        del self[key]
-        return True
+
+    def __iter__(self) -> Iterator[Any]:
+        """Iterate over the keys in the cache."""
+        current = self.head.next
+        while current and current != self.tail:
+            yield current.key
+            current = current.next
+
+    def __len__(self) -> int:
+        """Return the number of items in the cache."""
+        return len(self.store)
+
+    def __contains__(self, key: Any) -> bool:
+        """Check if a key exists in the cache."""
+        return key in self.store
 
     def reset(self) -> None:
         """Clear the entire cache."""
-        super().clear()
+        self.store.clear()
         self.head.next = self.tail
         self.tail.prev = self.head
+
+    def __repr__(self) -> str:
+        """String representation of LRUCaceh."""
+        items = ", ".join(f"{key}: {node.value}" for key, node in self.store.items())
+        return f"{type(self).__name__}(capacity={self.capacity}, items={{ {items} }})"
